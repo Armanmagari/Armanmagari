@@ -180,8 +180,9 @@ async def main():
     application.add_handler(CommandHandler("lock", lock))
     application.add_handler(CommandHandler("unlock", unlock))
 
-    application.add_handler(MessageHandler(filters.StatusUpdate.NewChatMembers, empty_message))
-    application.add_handler(MessageHandler(filters.StatusUpdate.LeftChatMember, empty_message))
+    # Update the filters for new and left chat members
+    application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, empty_message))
+    application.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, empty_message))
 
     application.add_error_handler(error)
 
