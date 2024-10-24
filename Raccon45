@@ -6,7 +6,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
 # Import your bot's token and name from a config file
-from config import BOTNAME, TOKEN
+from config.py import BOTNAME, TOKEN
 
 # Set up logging
 logging.basicConfig(
