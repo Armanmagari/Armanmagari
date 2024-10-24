@@ -7,9 +7,9 @@ from html import escape
 
 import pickledb
 
-from telegram.constants import ParseMode, TelegramError, Update
-from telegram.ext import Updater, MessageHandler, CommandHandler, Filters
-from telegram.ext.dispatcher import run_async
+from telegram.constants import ParseMode  # If needed
+from telegram.error import TelegramError  # Correct import for TelegramError
+from telegram import Update
 
 from config import BOTNAME, TOKEN
 
