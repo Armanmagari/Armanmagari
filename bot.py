@@ -355,7 +355,7 @@ def empty_message(update, context):
 
     # Someone left the chat
     elif update.message.left_chat_member is not None:
-        if update.message.left_chat_member.username != BOTNAME:
+        if update.message.left_chat_member.username != Armanmagari_bot:
             return goodbye(update, context)
 
 
@@ -381,7 +381,7 @@ def error(update, context, **kwargs):
 
 def main():
     # Create the Updater and pass it your bot's token.
-    updater = Updater(TOKEN, workers=10, use_context=True)
+    updater = Updater(7764138812:AAHwS5_4HwY1yfu1BBKFP7rj1sRyx-uepz4, workers=10, use_context=True)
 
     # Get the dispatcher to register handlers
     dp = updater.dispatcher
