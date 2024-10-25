@@ -401,7 +401,8 @@ def main():
     application.add_error_handler(error)
 
     # Start the bot using long polling
-    await application.run_polling()
+    application.run_polling(timeout=30, clean=True)
+    application.idle()
 
 if __name__ == "__main__":
     main()
