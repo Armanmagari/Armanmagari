@@ -380,29 +380,28 @@ def error(update, context, **kwargs):
 
 
 def main():
-    # Create the Updater and pass it your bot's token.
-    updater = Updater(TOKEN, workers=10, use_context=True)
+    # Initialize the application with your bot's token
+    application = ApplicationBuilder().token("7764138812:AAHwS5_4HwY1yfu1BBKFP7rj1sRyx-uepz4").build()
 
-    # Get the dispatcher to register handlers
-    dp = updater.dispatcher
+    # Add command and message handlers to the application
+    application.add_handler(CommandHandler("start", help))
+    application.add_handler(CommandHandler("help", help))
+    application.add_handler(CommandHandler("welcome", set_welcome))
+    application.add_handler(CommandHandler("goodbye", set_goodbye))
+    application.add_handler(CommandHandler("disable_goodbye", disable_goodbye))
+    application.add_handler(CommandHandler("lock", lock))
+    application.add_handler(CommandHandler("unlock", unlock))
+    application.add_handler(CommandHandler("quiet", quiet))
+    application.add_handler(CommandHandler("unquiet", unquiet))
 
-    dp.add_handler(CommandHandler("start", help))
-    dp.add_handler(CommandHandler("help", help))
-    dp.add_handler(CommandHandler("welcome", set_welcome))
-    dp.add_handler(CommandHandler("goodbye", set_goodbye))
-    dp.add_handler(CommandHandler("disable_goodbye", disable_goodbye))
-    dp.add_handler(CommandHandler("lock", lock))
-    dp.add_handler(CommandHandler("unlock", unlock))
-    dp.add_handler(CommandHandler("quiet", quiet))
-    dp.add_handler(CommandHandler("unquiet", unquiet))
+    # Register the MessageHandler for status updates
+    application.add_handler(MessageHandler(filters.StatusUpdate.ALL, empty_message))
 
-    dp.add_handler(MessageHandler(Filters.status_update, empty_message))
+    # Register the error handler
+    application.add_error_handler(error)
 
-    dp.add_error_handler(error)
-
-    updater.start_polling(timeout=30, clean=True)
-    updater.idle()
-
+    # Start the bot using long polling
+    await application.run_polling()
 
 if __name__ == "__main__":
     main()
