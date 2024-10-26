@@ -1,177 +1,126 @@
-#!/usr/bin/env python3
-import logging
-from html import escape
-import pickledb
-from telegram.constants import ParseMode
-from telegram.error import TelegramError
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+import requests
+import yfinance as yf
+from telegram import Update, ChatMember
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, ChatMemberHandler, filters
 
-from config import BOTNAME, TOKEN
+# Replace with your actual API keys
+TOKEN = "8082794130:AAH9_ZY1VU4kRy8nBzInpuabJ-o9d8ni2FU"
+NEWS_API_KEY = "10FU5CHVTK1LXM5E"
+STOCK_API_KEY = "1LIN238V5F4PCM9R"
 
-# Define the help text
-help_text = (
-    "Welcomes everyone that enters a group chat that this bot is a "
-    "part of. By default, only the person who invited the bot into "
-    "the group is able to change settings.\nCommands:\n\n"
-    "/welcome - Set welcome message\n"
-    "/goodbye - Set goodbye message\n"
-    "/disable\\_goodbye - Disable the goodbye message\n"
-    "/lock - Only the person who invited the bot can change messages\n"
-    "/unlock - Everyone can change messages\n"
-    '/quiet - Disable "Sorry, only the person who..." '
-    "& help messages\n"
-    '/unquiet - Enable "Sorry, only the person who..." '
-    "& help messages\n\n"
-    "You can use _$username_ and _$title_ as placeholders when setting"
-    " messages. [HTML formatting]"
-    "(https://core.telegram.org/bots/api#formatting-options) "
-    "is also supported.\n"
-)
+GROUP_DESCRIPTION = """
+WELCOME TO ARMAN EXCHANGE!
+I'm glad you're here. I would like to update you with the latest stock news.
+What can I help you with today?
+"""
 
-# Set up logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
-
-# Initialize the database
-db = pickledb.load("bot.db", True)
-if not db.get("chats"):
-    db.set("chats", [])
-
-# Async function to send messages
-async def send_message(context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
-    await context.bot.send_message(*args, **kwargs)
-
-# Check admin privileges
-async def check(update: Update, context: ContextTypes.DEFAULT_TYPE, override_lock=None):
-    chat_id = update.message.chat_id
-    chat_str = str(chat_id)
-
-    if chat_id > 0:
-        await send_message(context, chat_id=chat_id, text="Please add me to a group first!")
-        return False
-
-    locked = override_lock if override_lock is not None else db.get(chat_str + "_lck")
-
-    if locked and db.get(chat_str + "_adm") != update.message.from_user.id:
-        if not db.get(chat_str + "_quiet"):
-            await send_message(
-                context,
-                chat_id=chat_id,
-                text="Sorry, only the person who invited me can do that.",
-            )
-        return False
-    return True
-
-# Command and message handlers
-async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await send_message(
-        context,
-        chat_id=update.message.chat_id,
-        text=help_text,
-        parse_mode=ParseMode.MARKDOWN,
-        disable_web_page_preview=True
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a greeting message on /start command."""
+    await update.message.reply_text(
+        f"Hello, {update.effective_user.first_name}! Welcome to the bot. Type /help for available commands."
     )
 
-async def set_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await check(update, context):
-        return
-
-    chat_id = update.message.chat_id
-    message = update.message.text.partition(" ")[2]
-
-    if not message:
-        await send_message(
-            context,
-            chat_id=chat_id,
-            text="You need to send a message, too! For example:\n"
-            "<code>/welcome Hello $username, welcome to "
-            "$title!</code>",
-            parse_mode=ParseMode.HTML,
-        )
-        return
-
-    db.set(str(chat_id), message)
-    await send_message(context, chat_id=chat_id, text="Got it!")
-
-# Goodbye message
-async def goodbye(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.message.chat.id
-    text = db.get(str(chat_id) + "_bye")
-
-    if text is False:
-        return
-
-    if text is None:
-        text = "Goodbye, $username!"
-
-    text = text.replace("$username", update.message.left_chat_member.first_name)
-    text = text.replace("$title", update.message.chat.title)
-    await send_message(context, chat_id=chat_id, text=text, parse_mode=ParseMode.HTML)
-
-# Introduce bot to chat
-async def introduce(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.message.chat.id
-    invited = update.message.from_user.id
-
-    db.set(str(chat_id) + "_adm", invited)
-    db.set(str(chat_id) + "_lck", True)
-
-    text = (
-        f"Hello {update.message.chat.title}! "
-        "I will now greet anyone who joins this chat with a nice message 😊 \n"
-        "Check the /help command for more info!"
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Provide help information on /help command."""
+    await update.message.reply_text(
+        "/start - Start the bot\n"
+        "/help - Display help message\n"
+        "/news - Get the latest news headlines\n"
+        "/stock <symbol> - Get real-time stock price\n"
+        "/insider <symbol> - Get insider transactions for a stock symbol\n"
     )
-    await send_message(context, chat_id=chat_id, text=text)
 
-async def empty_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chats = db.get("chats")
+async def fetch_news(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Fetch and send latest news headlines using NewsAPI."""
+    url = f"https://newsapi.org/v2/top-headlines?country=us&apiKey={NEWS_API_KEY}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        news_data = response.json().get("articles", [])[:5]  # Fetch top 5 articles
+        news_message = "📰 *Latest News Headlines:*\n\n"
+        for article in news_data:
+            news_message += f"🔹 *{article['title']}*\n"
+            news_message += f"_{article['description']}_\n"
+            news_message += f"[Read more]({article['url']})\n\n"
+        await update.message.reply_text(news_message, parse_mode="Markdown", disable_web_page_preview=True)
+    else:
+        await update.message.reply_text("Failed to fetch news. Please try again later.")
 
-    if update.message.chat.id not in chats:
-        chats.append(update.message.chat.id)
-        db.set("chats", chats)
+async def fetch_stock(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Fetch and send real-time stock data for a given symbol using Yahoo Finance."""
+    if len(context.args) == 0:
+        await update.message.reply_text("Please provide a stock symbol, e.g., /stock AAPL")
+        return
 
-    if update.message.new_chat_members:
-        for new_member in update.message.new_chat_members:
-            if new_member.username == BOTNAME:
-                await introduce(update, context)
-            else:
-                await welcome(update, context, new_member)
-
-    elif update.message.left_chat_member:
-        await goodbye(update, context)
-
-# Error handler
-async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    error = context.error
+    symbol = context.args[0].upper()
     try:
-        if isinstance(error, TelegramError):
-            chats = db.get("chats")
-            if update.message.chat_id in chats:
-                chats.remove(update.message.chat_id)
-                db.set("chats", chats)
-                logger.info(f"Removed chat_id {update.message.chat_id} from chat list")
+        stock = yf.Ticker(symbol)
+        stock_info = stock.history(period="1d")
+        if not stock_info.empty:
+            price = stock_info['Close'][0]
+            stock_message = f"💹 *{symbol} Stock Price:*\n\n"
+            stock_message += f"Current Price: ${price:.2f}\n"
+            await update.message.reply_text(stock_message, parse_mode="Markdown")
+        else:
+            await update.message.reply_text("Could not retrieve stock data. Please check the symbol and try again.")
     except Exception as e:
-        logger.error(f"An error occurred: {e}")
+        await update.message.reply_text(f"Error fetching stock data: {e}")
 
-# Main function
-async def main():
-    application = ApplicationBuilder().token("7764138812:AAHwS5_4HwY1yfu1BBKFP7rj1sRyx-uepz4").build()
+async def fetch_insider_transactions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Fetch insider transactions for a stock symbol using Alpha Vantage API."""
+    if len(context.args) == 0:
+        await update.message.reply_text("Please provide a stock symbol, e.g., /insider IBM")
+        return
 
-    application.add_handler(CommandHandler("start", help))
-    application.add_handler(CommandHandler("help", help))
-    application.add_handler(CommandHandler("welcome", set_welcome))
-    application.add_handler(MessageHandler(filters.StatusUpdate.ALL, empty_message))
+    symbol = context.args[0].upper()
+    url = f'https://www.alphavantage.co/query?function=INSIDER_TRANSACTIONS&symbol={symbol}&apikey={STOCK_API_KEY}'
+    
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        transactions = data.get('transactions', [])
+        
+        if not transactions:
+            await update.message.reply_text("No insider transactions found.")
+            return
+        
+        message = f"📈 *{symbol} Insider Transactions:*\n\n"
+        for transaction in transactions[:5]:  # Show top 5 transactions
+            message += f"Date: {transaction['transactionDate']}\n"
+            message += f"Type: {transaction['transactionType']}\n"
+            message += f"Shares: {transaction['shares']}\n"
+            message += f"Price: {transaction['transactionPrice']}\n\n"
+        await update.message.reply_text(message, parse_mode="Markdown")
+    else:
+        await update.message.reply_text("Failed to fetch insider transactions.")
 
-    application.add_error_handler(error)
+async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Welcome new members to the group."""
+    for member in update.message.new_chat_members:
+        await update.message.reply_text(
+            f"Welcome to Arman Exchange, {member.full_name}! \n{GROUP_DESCRIPTION}"
+        )
 
-    await application.start()
-    await application.updater.start_polling()
-    await application.idle()
+async def goodbye(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Say goodbye when a member leaves the group."""
+    if update.message.left_chat_member:
+        await update.message.reply_text(f"Goodbye, {update.message.left_chat_member.full_name}! We'll miss you.")
+
+def main():
+    application = ApplicationBuilder().token("8082794130:AAH9_ZY1VU4kRy8nBzInpuabJ-o9d8ni2FU").build()
+
+    # Register handlers for each command
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("news", fetch_news))
+    application.add_handler(CommandHandler("stock", fetch_stock))
+    application.add_handler(CommandHandler("insider", fetch_insider_transactions))
+
+    # Handlers for welcome and goodbye messages in groups
+    application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome))
+    application.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, goodbye))
+
+    # Start polling
+    application.run_polling()
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    main()
