@@ -4,9 +4,9 @@ from telegram import Update, ChatMember
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, ChatMemberHandler, filters
 
 # Replace with your actual API keys
-TOKEN = "8082794130:AAH9_ZY1VU4kRy8nBzInpuabJ-o9d8ni2FU"
-NEWS_API_KEY = "10FU5CHVTK1LXM5E"
-STOCK_API_KEY = "1LIN238V5F4PCM9R"
+TOKEN = ""
+NEWS_API_KEY =
+STOCK_API_KEY = "R"
 
 GROUP_DESCRIPTION = """
 WELCOME TO ARMAN EXCHANGE!
@@ -106,7 +106,7 @@ async def goodbye(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(f"Goodbye, {update.message.left_chat_member.full_name}! We'll miss you.")
 
 def main():
-    application = ApplicationBuilder().token("8082794130:AAH9_ZY1VU4kRy8nBzInpuabJ-o9d8ni2FU").build()
+    application = ApplicationBuilder().token("").build()
 
     # Register handlers for each command
     application.add_handler(CommandHandler("start", start))
